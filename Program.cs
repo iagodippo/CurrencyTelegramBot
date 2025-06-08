@@ -38,6 +38,6 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
-
 app.UseHttpsRedirection();
+app.MapGet("/health", () => Results.Ok("Tudo bem!"));
 app.Run();

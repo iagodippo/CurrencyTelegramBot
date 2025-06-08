@@ -13,7 +13,9 @@ services:
       - "5432:5432"
 
   bot:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: always
     depends_on:
       - postgres
@@ -22,6 +24,8 @@ services:
       Telegram__Token: "7687765772:AAE8Jkl7Jrb3zSr9NYgTZ1_6AP-jqIjitfk"
     networks:
       - botnet
+    command: >
+      sh -c "dotnet ef database update && dotnet CurrencyTelegramBot.dll"
 
 volumes:
   pgdata:
@@ -29,3 +33,4 @@ volumes:
 networks:
   botnet:
     driver: bridge
+
