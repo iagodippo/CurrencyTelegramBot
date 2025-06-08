@@ -1,41 +1,43 @@
+using CurrencyTelegramBot;
+using Telegram.Bot;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-var app = builder.Build();
+builder.Services.AddOptions<AwesomeApiOptions>()
+    .Bind(builder.Configuration.GetSection("AwesomeApi"));
 
-// Configure the HTTP request pipeline.
+builder.Services.AddSingleton<ITelegramBotClient>(
+    new TelegramBotClient(builder.Configuration["Telegram:Token"] ?? string.Empty));
+builder.Services.AddTransient<AwesomeApiQueryHandler>();
+
+builder.Services.AddHostedService<CurrencyBotWorker>();
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.ServicesStartConcurrently = true;
+    options.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+    options.ShutdownTimeout = TimeSpan.FromSeconds(5);
+    options.ServicesStopConcurrently = true;
+});
+builder.Services.AddHttpClient("AwesomeApi",
+        client =>
+        {
+            client.BaseAddress = new Uri(builder.Configuration["AwesomeApi:Url"] ?? string.Empty);
+            client.Timeout = TimeSpan.FromMinutes(2);
+        })
+.AddHttpMessageHandler<AwesomeApiQueryHandler>()
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
+});
+
+
+var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
 app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
