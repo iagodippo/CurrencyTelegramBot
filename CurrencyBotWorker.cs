@@ -47,24 +47,29 @@ public class CurrencyBotWorker(
                     await _bot.SendMessage(config.ChatId, msg, cancellationToken: ct);
                 }
             }
+
             await Task.Delay(TimeSpan.FromSeconds(30), ct);
         }
     }
 
-    private async Task<string> ObterCotacoesAsync(List<string> moedas)
+    private async Task<string> ObterCotacoesAsync(List<(string From, string To)> pares)
     {
         try
         {
-            var symbols = string.Join(",", moedas.Select(m => m + "-BRL"));
+            var symbols = string.Join(",", pares.Select(p => $"{p.From}-{p.To}"));
             var result = await _client.GetFromJsonAsync<Dictionary<string, Cotacao>>(symbols);
 
-            return result == null ? "Não foi possível obter as cotações no momento." : string.Join("\n", result.Values.Select(v => $"💱 {v.code} → R$ {v.ask}"));
+            if (result == null)
+                return "Não foi possível obter as cotações.";
+
+            return string.Join("\n", result.Values.Select(v => $"💱 {v.code} → {v.codein} {v.ask}"));
         }
         catch
         {
             return "Erro ao buscar as cotações.";
         }
     }
+
 
     private async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken ct)
     {
@@ -82,25 +87,53 @@ public class CurrencyBotWorker(
                     {
                         config.IntervaloMinutos = minutos;
                         config.State = BotState.Normal;
-                        await bot.SendMessage(chatId, $"Intervalo configurado para {minutos} minutos.", cancellationToken: ct);
+                        await bot.SendMessage(chatId, $"Intervalo configurado para {minutos} minuto{(minutos > 1 ? "s" : "") }.",
+                            cancellationToken: ct);
                     }
                     else
                     {
-                        await bot.SendMessage(chatId, "Por favor, digite um número válido em minutos.", cancellationToken: ct);
+                        await bot.SendMessage(chatId, "Por favor, digite um número válido em minutos.",
+                            cancellationToken: ct);
                     }
+
                     return;
                 }
                 case BotState.EsperaMoedas:
-                    config.Moedas = text.ToUpper().Split(',', StringSplitOptions.TrimEntries).ToList();
-                    config.State = BotState.Normal;
-                    await bot.SendMessage(chatId, $"Moedas configuradas: {string.Join(", ", config.Moedas)}", cancellationToken: ct);
+                {
+                    var pares = text.ToUpper()
+                        .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                        .Select(p =>
+                        {
+                            var partes = p.Split("-", StringSplitOptions.TrimEntries);
+                            return partes.Length == 2 ? (From: partes[0].Trim(), To: partes[1].Trim()) : default;
+                        })
+                        .Where(p => !string.IsNullOrWhiteSpace(p.From) && !string.IsNullOrWhiteSpace(p.To))
+                        .ToList();
+
+                    if (pares.Count == 0)
+                    {
+                        await bot.SendMessage(chatId, "Formato inválido. Use por exemplo: EUR-BRL,EUR-USD",
+                            cancellationToken: ct);
+                    }
+                    else
+                    {
+                        config.Moedas = pares;
+                        config.State = BotState.Normal;
+                        var resumo = string.Join("\n", config.Moedas.Select(p => $"{p.From} → {p.To}"));
+                        await bot.SendMessage(chatId, $"Moedas configuradas:\n{resumo}", cancellationToken: ct);
+                    }
+
                     return;
+                }
             }
 
             if (text.Equals("/start", StringComparison.InvariantCultureIgnoreCase))
             {
-                await bot.SendMessage(chatId, "Bem-vindo ao Bot de Câmbio!", replyMarkup: MainMenu(), cancellationToken: ct);
-                await bot.SendMessage(chatId, "Siga as instruções e configure o intervalo de tempo das notificações e as moedas desejadas", replyMarkup: MainMenu(), cancellationToken: ct);
+                await bot.SendMessage(chatId, "Bem-vindo ao Bot de Câmbio!",
+                    cancellationToken: ct);
+                await bot.SendMessage(chatId,
+                    "Siga as instruções e configure o intervalo de tempo das notificações e as moedas desejadas",
+                    replyMarkup: MainMenu(), cancellationToken: ct);
             }
         }
         else if (update is { Type: UpdateType.CallbackQuery, CallbackQuery: not null })
@@ -117,10 +150,12 @@ public class CurrencyBotWorker(
                     break;
                 case "config_moedas":
                     config.State = BotState.EsperaMoedas;
-                    await bot.SendMessage(chatId, "Digite as moedas desejadas (ex: USD,EUR):", cancellationToken: ct);
+                    await bot.SendMessage(chatId, "Digite as moedas desejadas no formato BRL-USD:",
+                        cancellationToken: ct);
                     break;
                 case "ver_status":
-                    var status = $"⏱ Intervalo: {config.IntervaloMinutos} min\n💱 Moedas: {string.Join(", ", config.Moedas)}";
+                    var status =
+                        $"⏱ Intervalo: {config.IntervaloMinutos} min\n💱 Moedas: {string.Join(", ", config.Moedas)}";
                     await bot.SendMessage(chatId, status, cancellationToken: ct);
                     break;
             }
@@ -149,12 +184,13 @@ public class CurrencyBotWorker(
     ]);
 }
 
-
 public enum BotState
 {
     Normal,
     EsperaIntervalo,
-    EsperaMoedas
+    EsperaMoedas,
+    EsperaMoedaBase,
+    EsperaPares
 }
 
 public class UserConfig
@@ -162,14 +198,14 @@ public class UserConfig
     public long ChatId { get; init; }
     public BotState State { get; set; } = BotState.Normal;
     public int IntervaloMinutos { get; set; }
-    public List<string> Moedas { get; set; } = [];
+    public List<(string From, string To)> Moedas { get; set; } = [];
     public DateTime UltimoEnvio { get; set; } = DateTime.MinValue;
 }
 
 public class Cotacao
 {
+    public string codein { get; set; } = "";
     public string code { get; set; } = "";
     public string bid { get; set; } = "";
     public string ask { get; set; } = "";
-    
 }
