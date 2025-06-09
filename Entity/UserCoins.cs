@@ -1,4 +1,4 @@
-﻿namespace CurrencyTelegramBot;
+﻿namespace CurrencyTelegramBot.Entity;
 
 public class UserCoins
 {

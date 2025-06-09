@@ -1,4 +1,4 @@
-﻿namespace CurrencyTelegramBot;
+﻿namespace CurrencyTelegramBot.Enums;
 
 public enum BotState
 {

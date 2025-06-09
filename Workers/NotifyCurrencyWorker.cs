@@ -1,10 +1,13 @@
-﻿using Telegram.Bot;
+﻿using CurrencyTelegramBot.Entity;
+using CurrencyTelegramBot.Models;
+using CurrencyTelegramBot.Repository;
+using Telegram.Bot;
 
-namespace CurrencyTelegramBot;
+namespace CurrencyTelegramBot.Workers;
 
 public class NotifyCurrencyWorker : BackgroundService
 {
-    private UserConfigRepository _userConfigRepository;
+    private UserRepository _userRepository;
     private readonly HttpClient _client;
     private ITelegramBotClient _bot;
     
@@ -15,7 +18,7 @@ public class NotifyCurrencyWorker : BackgroundService
         _bot = bot;
         _client = httpClientFactory.CreateClient("AwesomeApi");
         var scope = serviceProvider.CreateScope();
-        _userConfigRepository = scope.ServiceProvider.GetRequiredService<UserConfigRepository>();
+        _userRepository = scope.ServiceProvider.GetRequiredService<UserRepository>();
     }
     
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -29,22 +32,22 @@ public class NotifyCurrencyWorker : BackgroundService
     {
         while (!ct.IsCancellationRequested)
         {
-            var configs = await _userConfigRepository.GetAllAsync();
-            foreach (var config in configs)
+            var users = await _userRepository.GetAllAsync();
+            foreach (var user in users.Where(x => x.IsActive))
             {
-                if (config.IntervaloMinutos <= 0 || config.Coins.Count == 0)
+                if (user.MinutesInterval <= 0 || user.Coins.Count == 0)
                     continue;
 
-                var ultimaExecucao = config.UltimoEnvio;
-                if (ultimaExecucao.AddMinutes(config.IntervaloMinutos) > DateTime.UtcNow)
+                var ultimaExecucao = user.LastNotify;
+                if (ultimaExecucao.AddMinutes(user.MinutesInterval) > DateTime.UtcNow)
                     continue;
 
-                config.UltimoEnvio = DateTime.UtcNow;
+                user.LastNotify = DateTime.UtcNow;
 
-                var msg = await ObterCotacoesAsync(config.Coins);
-                await _bot.SendMessage(config.ChatId, msg, cancellationToken: ct);
+                var msg = await ObterCotacoesAsync(user.Coins);
+                await _bot.SendMessage(user.ChatId, msg, cancellationToken: ct);
 
-                await _userConfigRepository.UpsertAsync(config);
+                await _userRepository.UpsertAsync(user);
             }
 
             await Task.Delay(TimeSpan.FromSeconds(30), ct);

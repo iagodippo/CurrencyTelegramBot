@@ -1,4 +1,9 @@
 using CurrencyTelegramBot;
+using CurrencyTelegramBot.Entity;
+using CurrencyTelegramBot.HttpHandlers;
+using CurrencyTelegramBot.Options;
+using CurrencyTelegramBot.Repository;
+using CurrencyTelegramBot.Workers;
 using Microsoft.EntityFrameworkCore;
 using Telegram.Bot;
 
@@ -22,7 +27,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddSingleton<ITelegramBotClient>(
     new TelegramBotClient(builder.Configuration["Telegram:Token"] ?? string.Empty));
 builder.Services.AddTransient<AwesomeApiQueryHandler>();
-builder.Services.AddScoped<UserConfigRepository>();
+builder.Services.AddScoped<UserRepository>();
 
 builder.Services.AddHostedService<CurrencyBotWorker>();
 builder.Services.AddHostedService<NotifyCurrencyWorker>();

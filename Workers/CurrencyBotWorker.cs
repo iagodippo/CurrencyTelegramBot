@@ -1,13 +1,17 @@
-﻿using Telegram.Bot;
+﻿using CurrencyTelegramBot.Entity;
+using CurrencyTelegramBot.Enums;
+using CurrencyTelegramBot.Repository;
+using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using User = CurrencyTelegramBot.Entity.User;
 
-namespace CurrencyTelegramBot;
+namespace CurrencyTelegramBot.Workers;
 
 public class CurrencyBotWorker : BackgroundService
 {
-    private readonly UserConfigRepository _userConfigRepository;
+    private readonly UserRepository _userRepository;
     private readonly ITelegramBotClient _bot;
 
     public CurrencyBotWorker(ITelegramBotClient bot,
@@ -15,7 +19,7 @@ public class CurrencyBotWorker : BackgroundService
     {
         _bot = bot;
         var scope = serviceProvider.CreateScope();
-        _userConfigRepository = scope.ServiceProvider.GetRequiredService<UserConfigRepository>();
+        _userRepository = scope.ServiceProvider.GetRequiredService<UserRepository>();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -43,7 +47,7 @@ public class CurrencyBotWorker : BackgroundService
                 {
                     if (int.TryParse(text, out int minutos))
                     {
-                        config.IntervaloMinutos = minutos;
+                        config.MinutesInterval = minutos;
                         config.State = BotState.Normal;
                         await bot.SendMessage(chatId,
                             $"Intervalo configurado para {minutos} minuto{(minutos > 1 ? "s" : "")}.",
@@ -76,13 +80,9 @@ public class CurrencyBotWorker : BackgroundService
                     }
                     else
                     {
-                        foreach (var par in pares)
-                        {
-                            config.Coins.Add(new UserCoins(config.ChatId, par.From, par.To));
-                        }
-
+                        config.Coins = pares.Select(par => new UserCoins(config.ChatId, par.From, par.To)).ToList();;
                         config.State = BotState.Normal;
-                        var resumo = string.Join("\n", config.Coins.Select(p => $"{p.From} → {p.To}"));
+                        string resumo = string.Join("\n", config.Coins.Select(p => $"{p.From} → {p.To}"));
                         await bot.SendMessage(chatId, $"Moedas configuradas:\n{resumo}", cancellationToken: ct);
                     }
 
@@ -94,12 +94,14 @@ public class CurrencyBotWorker : BackgroundService
             {
                 await bot.SendMessage(chatId, "Bem-vindo ao Bot de Câmbio!",
                     cancellationToken: ct);
+                await bot.SendMessage(chatId, "Nele você poderá receber atualizações diárias de cotações de moedas com frequência configurável.",
+                    cancellationToken: ct);
                 await bot.SendMessage(chatId,
-                    "Siga as instruções e configure o intervalo de tempo das notificações e as moedas desejadas",
+                    "Siga as instruções e configure o intervalo de tempo das mensagens e as moedas desejadas.",
                     replyMarkup: MainMenu(), cancellationToken: ct);
             }
 
-            await _userConfigRepository.UpsertAsync(config);
+            await _userRepository.UpsertAsync(config);
         }
         else if (update is { Type: UpdateType.CallbackQuery, CallbackQuery: not null })
         {
@@ -115,13 +117,19 @@ public class CurrencyBotWorker : BackgroundService
                     break;
                 case "config_moedas":
                     config.State = BotState.EsperaMoedas;
-                    await bot.SendMessage(chatId, "Digite as moedas desejadas no formato BRL-USD:",
+                    await bot.SendMessage(chatId, @"Digite as moedas desejadas no formato ""BRL-USD, USD-EUR"":",
                         cancellationToken: ct);
                     break;
                 case "ver_status":
                     var status =
-                        $"⏱ Intervalo: {config.IntervaloMinutos} min\n💱 Moedas: {string.Join("", config.Coins.Select(p => $"\n{p.From}→{p.To}"))}";
+                        $"🗣 Notificações: {(config.IsActive ? "✅" : "❌")}\n⏱ Intervalo: {config.MinutesInterval} min\n💱 Moedas: {string.Join("", config.Coins.Select(p => $"\n    {p.From}→{p.To}"))}";
                     await bot.SendMessage(chatId, status, cancellationToken: ct);
+                    break;
+                case "ativar_desativar":
+                    config.IsActive = !config.IsActive;
+                    await _userRepository.UpsertAsync(config);
+                    await bot.SendMessage(chatId, $"Notificações {(config.IsActive ? "ativadas" : "desativadas")}!",
+                        cancellationToken: ct);
                     break;
             }
 
@@ -136,14 +144,19 @@ public class CurrencyBotWorker : BackgroundService
 
     private async Task<User> GetOrCreateConfig(long chatId, string username = "")
     {
-        return await _userConfigRepository.GetOrAddAsync(new User { ChatId = chatId, Username = username });
+        return await _userRepository.GetOrAddAsync(new User { ChatId = chatId, Username = username });
     }
 
     private static InlineKeyboardMarkup MainMenu() => new([
         [
-            InlineKeyboardButton.WithCallbackData("⏱ Intervalo", "config_intervalo"),
-            InlineKeyboardButton.WithCallbackData("💱 Moedas", "config_moedas")
+            InlineKeyboardButton.WithCallbackData("⏱ Configurar intervalo", "config_intervalo"),
+            InlineKeyboardButton.WithCallbackData("💱 Configurar Moedas", "config_moedas")
         ],
-        [InlineKeyboardButton.WithCallbackData("📊 Ver status", "ver_status")]
+        [
+            InlineKeyboardButton.WithCallbackData("📊 Ver configurações atuais", "ver_status")
+        ],
+        [
+            InlineKeyboardButton.WithCallbackData("✅❌ Ativar/Desativar notificações", "ativar_desativar")
+        ]
     ]);
 }

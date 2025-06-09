@@ -1,7 +1,6 @@
-﻿using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 
-namespace CurrencyTelegramBot;
+namespace CurrencyTelegramBot.Entity;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {

@@ -1,4 +1,4 @@
-﻿namespace CurrencyTelegramBot;
+﻿namespace CurrencyTelegramBot.Options;
 
 public class AwesomeApiOptions
 {

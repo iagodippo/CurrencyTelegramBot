@@ -1,4 +1,4 @@
-﻿namespace CurrencyTelegramBot;
+﻿namespace CurrencyTelegramBot.Models;
 
 public class Cotacao
 {

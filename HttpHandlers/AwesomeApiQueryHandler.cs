@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.Options;
+﻿using CurrencyTelegramBot.Options;
+using Microsoft.Extensions.Options;
 
-namespace CurrencyTelegramBot;
+namespace CurrencyTelegramBot.HttpHandlers;
 
 public class AwesomeApiQueryHandler(IOptions<AwesomeApiOptions> options) : DelegatingHandler
 {

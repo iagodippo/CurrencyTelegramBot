@@ -1,8 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using CurrencyTelegramBot.Entity;
+using Microsoft.EntityFrameworkCore;
 
-namespace CurrencyTelegramBot;
+namespace CurrencyTelegramBot.Repository;
 
-public class UserConfigRepository(AppDbContext context)
+public class UserRepository(AppDbContext context)
 {
     public async Task<User?> GetByIdAsync(long chatId)
     {
@@ -32,9 +33,10 @@ public class UserConfigRepository(AppDbContext context)
         else
         {
             existing.Coins = config.Coins;
+            existing.IsActive = config.IsActive;
             existing.State = config.State;
-            existing.IntervaloMinutos = config.IntervaloMinutos;
-            existing.UltimoEnvio = config.UltimoEnvio;
+            existing.MinutesInterval = config.MinutesInterval;
+            existing.LastNotify = config.LastNotify;
             context.User.Update(existing);
         }
 
