@@ -1,18 +1,32 @@
 using CurrencyTelegramBot;
+using Microsoft.EntityFrameworkCore;
 using Telegram.Bot;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
 
+builder.Configuration
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables(); // carrega variáveis do ambiente (ex: Railway, Docker)
+
+
 builder.Services.AddOptions<AwesomeApiOptions>()
     .Bind(builder.Configuration.GetSection("AwesomeApi"));
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddSingleton<ITelegramBotClient>(
     new TelegramBotClient(builder.Configuration["Telegram:Token"] ?? string.Empty));
 builder.Services.AddTransient<AwesomeApiQueryHandler>();
+builder.Services.AddScoped<UserConfigRepository>();
 
 builder.Services.AddHostedService<CurrencyBotWorker>();
+builder.Services.AddHostedService<NotifyCurrencyWorker>();
+
 builder.Services.Configure<HostOptions>(options =>
 {
     options.ServicesStartConcurrently = true;
@@ -39,5 +53,5 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 app.UseHttpsRedirection();
-app.MapGet("/health", () => Results.Ok("Tudo bem!"));
+app.MapGet("/health", () => Results.Ok("OK!"));
 app.Run();

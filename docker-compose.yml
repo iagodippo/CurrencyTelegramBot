@@ -11,7 +11,8 @@ services:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-
+    networks:
+      - botnet
   bot:
     build:
       context: .
@@ -20,12 +21,10 @@ services:
     depends_on:
       - postgres
     environment:
+      ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=botdb;Username=botuser;Password=botpassword
-      Telegram__Token: "7687765772:AAE8Jkl7Jrb3zSr9NYgTZ1_6AP-jqIjitfk"
     networks:
       - botnet
-    command: >
-      sh -c "dotnet ef database update && dotnet CurrencyTelegramBot.dll"
 
 volumes:
   pgdata:

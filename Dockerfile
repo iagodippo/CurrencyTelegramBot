@@ -1,5 +1,4 @@
 ﻿FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
-USER $APP_UID
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
@@ -10,7 +9,6 @@ WORKDIR /src
 COPY ["CurrencyTelegramBot.csproj", "./"]
 RUN dotnet restore "CurrencyTelegramBot.csproj"
 COPY . .
-WORKDIR "/src/"
 RUN dotnet build "./CurrencyTelegramBot.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
@@ -19,5 +17,6 @@ RUN dotnet publish "./CurrencyTelegramBot.csproj" -c $BUILD_CONFIGURATION -o /ap
 
 FROM base AS final
 WORKDIR /app
+ENV ASPNETCORE_ENVIRONMENT=Production
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "CurrencyTelegramBot.dll"]

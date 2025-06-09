@@ -4,7 +4,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CurrencyTelegramBot", "Curr
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C23D3F03-0976-437A-AD9F-F3F86EE5C974}"
 	ProjectSection(SolutionItems) = preProject
-		docker-compose.yaml = docker-compose.yaml
+		docker-compose.yml = docker-compose.yml
 	EndProjectSection
 EndProject
 Global
