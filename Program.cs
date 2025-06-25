@@ -50,7 +50,7 @@ builder.Services.AddHttpClient("AwesomeApi",
 {
     ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true
 });
-
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 if (app.Environment.IsDevelopment())
@@ -58,5 +58,5 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 app.UseHttpsRedirection();
-app.MapGet("/health", () => Results.Ok("OK!"));
+app.MapHealthChecks("/health");
 app.Run();
