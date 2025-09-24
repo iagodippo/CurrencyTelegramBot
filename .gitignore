@@ -54,3 +54,5 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 /CurrencyTelegramBot.sln.DotSettings.user
+/.idea/.idea.CurrencyTelegramBot/.idea/copilot.data.migration.agent.xml
+/.idea/.idea.CurrencyTelegramBot/.idea/copilot.data.migration.edit.xml
