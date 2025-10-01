@@ -50,6 +50,8 @@ CodeCoverage/
 [Bb]uild[Ll]og.*
 
 # NUnit
+docker-compose.yml
+docker-compose-hub.yml
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
