@@ -51,18 +51,15 @@ public class NotifyCurrencyWorker : BackgroundService
         while (!ct.IsCancellationRequested)
         {
             var users = await _userRepository.GetAllAsync();
-            foreach (var user in users.Where(x => x.IsActive))
+            foreach (var user in users.Where(x => x.IsActive && x is { MinutesInterval: > 0, Coins.Count: > 0 }))
             {
-                if (user.MinutesInterval <= 0 || user.Coins.Count == 0)
-                    continue;
-
                 var ultimaExecucao = user.LastNotify;
                 if (ultimaExecucao.AddMinutes(user.MinutesInterval) > DateTime.UtcNow)
                     continue;
 
                 user.LastNotify = DateTime.UtcNow;
 
-                var msg = await ObterCotacoesAsync(user.Coins);
+                string msg = await ObterCotacoesAsync(user.Coins);
                 await _bot.SendMessage(user.ChatId, msg, cancellationToken: ct);
 
                 await _userRepository.UpsertAsync(user);
