@@ -88,7 +88,7 @@ public class NotifyCurrencyWorker : BackgroundService
             }
 
             // Chamada à API com política de retry (token é adicionado automaticamente pelo AwesomeApiQueryHandler)
-            var response = await _retryPolicy.ExecuteAsync(() => _client.GetAsync($"cotacao/{symbols}"));
+            var response = await _retryPolicy.ExecuteAsync(() => _client.GetAsync($"{symbols}"));
             response.EnsureSuccessStatusCode();
 
             var result = await response.Content.ReadFromJsonAsync<Dictionary<string, Cotacao>>();

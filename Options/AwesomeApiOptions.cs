@@ -2,5 +2,5 @@
 
 public class AwesomeApiOptions
 {
-    public string? Token;
+    public string? Token { get; set; }
 }
