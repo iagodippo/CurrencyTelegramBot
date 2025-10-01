@@ -39,13 +39,13 @@ public class CurrencyBotWorker : BackgroundService
         {
             var chatId = update.Message.Chat.Id;
             var text = update.Message.Text!.Trim();
-            var config = await GetOrCreateConfig(chatId, update.Message.Chat.Username);
+            var config = await GetOrCreateConfig(chatId, update.Message.Chat.Username ?? update.Message.Chat.FirstName);
 
             switch (config.State)
             {
                 case BotState.EsperaIntervalo:
                 {
-                    if (int.TryParse(text, out int minutos))
+                    if (int.TryParse(text, out int minutos) && minutos is > 0 and <= 1440)
                     {
                         config.MinutesInterval = minutos;
                         config.State = BotState.Normal;
@@ -55,7 +55,7 @@ public class CurrencyBotWorker : BackgroundService
                     }
                     else
                     {
-                        await bot.SendMessage(chatId, "Por favor, digite um número válido em minutos.",
+                        await bot.SendMessage(chatId, "Por favor, digite um número válido em minutos, maior que 0 e menor que 1440.",
                             cancellationToken: ct);
                     }
 
@@ -107,7 +107,7 @@ public class CurrencyBotWorker : BackgroundService
         {
             var cb = update.CallbackQuery;
             long chatId = cb.Message.Chat.Id;
-            var config = await GetOrCreateConfig(chatId, cb.Message.Chat.Username);
+            var config = await GetOrCreateConfig(chatId);
 
             switch (cb.Data)
             {
