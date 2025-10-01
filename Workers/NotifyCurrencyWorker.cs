@@ -14,7 +14,7 @@ public class NotifyCurrencyWorker : BackgroundService
     private ITelegramBotClient _bot;
     
     // Cache para armazenar cotações com timestamp
-    private readonly Dictionary<string, (Cotacao cotacao, DateTime timestamp)> _cotacoesCache = new();
+    private readonly Dictionary<string, (Dictionary<string, Cotacao> cotacoes, DateTime timestamp)> _cotacoesCache = new();
     private readonly TimeSpan _cacheExpirationTime = TimeSpan.FromMinutes(5);
     
     // Política de retry com Polly
@@ -28,14 +28,12 @@ public class NotifyCurrencyWorker : BackgroundService
         _client = httpClientFactory.CreateClient("AwesomeApi");
         var scope = serviceProvider.CreateScope();
         _userRepository = scope.ServiceProvider.GetRequiredService<UserRepository>();
-        
-        // Configuração da política de retry
         _retryPolicy = Policy
             .HandleResult<HttpResponseMessage>(r => r.StatusCode == HttpStatusCode.TooManyRequests)
             .WaitAndRetryAsync(
                 retryCount: 3,
-                sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(10),
-                onRetry: (outcome, timespan, retryCount, context) =>
+                sleepDurationProvider: _ => TimeSpan.FromSeconds(10),
+                onRetry: (_, timespan, retryCount, _) =>
                 {
                     Console.WriteLine($"Retry {retryCount} após {timespan} segundos devido a Too Many Requests");
                 });
@@ -86,29 +84,30 @@ public class NotifyCurrencyWorker : BackgroundService
                 DateTime.UtcNow - cacheEntry.timestamp < _cacheExpirationTime)
             {
                 Console.WriteLine("Usando cotações do cache.");
-                return $"💱 {cacheEntry.cotacao.code} → {cacheEntry.cotacao.codein} {cacheEntry.cotacao.ask}";
+                return string.Join("\n", cacheEntry.cotacoes.Values.Select(v => $"💱 {v.code} → {v.codein} {v.ask}"));
             }
 
-            // Chamada à API com política de retry
+            // Chamada à API com política de retry (token é adicionado automaticamente pelo AwesomeApiQueryHandler)
             var response = await _retryPolicy.ExecuteAsync(() => _client.GetAsync($"cotacao/{symbols}"));
             response.EnsureSuccessStatusCode();
 
             var result = await response.Content.ReadFromJsonAsync<Dictionary<string, Cotacao>>();
 
-            // Armazena no cache
-            if (result == null)
-                return result == null
-                    ? "Não foi possível obter as cotações."
-                    : string.Join("\n", result.Values.Select(v => $"💱 {v.code} → {v.codein} {v.ask}"));
-            foreach (var kvp in result)
+            if (result == null || result.Count == 0)
             {
-                _cotacoesCache[kvp.Key] = (kvp.Value, DateTime.UtcNow);
+                return "Não foi possível obter as cotações.";
             }
+
+            // Armazena no cache
+            _cotacoesCache[symbols] = (result, DateTime.UtcNow);
+            
+            Console.WriteLine($"Cotações obtidas da API e armazenadas no cache para: {symbols}");
 
             return string.Join("\n", result.Values.Select(v => $"💱 {v.code} → {v.codein} {v.ask}"));
         }
         catch(Exception ex)
         {
+            Console.WriteLine($"Erro ao buscar cotações: {ex.Message}");
             return $"Erro ao buscar as cotações. {ex.Message}";
         }
     }
