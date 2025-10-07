@@ -24,6 +24,8 @@ builder.Services.AddOptions<AwesomeApiOptions>()
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+
+
 builder.Services.AddSingleton<ITelegramBotClient>(
     new TelegramBotClient(builder.Configuration["Telegram:Token"] ?? string.Empty));
 builder.Services.AddTransient<AwesomeApiQueryHandler>();
@@ -53,6 +55,10 @@ builder.Services.AddHttpClient("AwesomeApi",
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+using var scope = app.Services.CreateScope();
+var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+db.Database.Migrate();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
